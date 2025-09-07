@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flower Identifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .loader {
+            border: 5px solid #f3f3f3; /* Light grey */
+            border-top: 5px solid #3b82f6; /* Blue */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #camera-stream {
+            transform: scaleX(-1);
+        }
+        #gemini-output p {
+            margin-bottom: 1rem;
+        }
+        #gemini-output ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+        }
+        #gemini-output li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8 text-center">
+        <!-- Header Section -->
+        <header class="mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">
+                <span id="user-name-display">Flower</span> Identifier
+            </h1>
+            <p class="text-gray-600 mt-2">Identify flowers with the power of Gemini.</p>
+             <div class="mt-4 text-left sm:text-center">
+                <button id="edit-name-btn" class="text-sm text-indigo-600 hover:underline focus:outline-none">Personalize Name</button>
+                <div id="name-input-container" class="hidden mt-2 sm:flex sm:justify-center sm:items-center">
+                    <input type="text" id="name-input" placeholder="Enter your name" class="w-full sm:w-auto border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <button id="save-name-btn" class="mt-2 sm:mt-0 sm:ml-2 w-full sm:w-auto bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700">Save</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Status Display -->
+            <div id="status-container" class="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p id="status" class="text-blue-700 font-medium">Ready to identify flowers!</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="action-buttons" class="flex flex-col sm:flex-row justify-center gap-4 mb-6">
+                <button id="upload-btn" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Upload Photo
+                </button>
+                <input type="file" id="image-upload-input" class="hidden" accept="image/*">
+                <button id="camera-btn" class="w-full sm:w-auto bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    Use Camera
+                </button>
+            </div>
+             <div id="camera-actions" class="hidden flex-col sm:flex-row justify-center gap-4 mb-6">
+                 <button id="snap-photo-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-transform transform hover:scale-105">Snap Photo</button>
+                 <button id="cancel-camera-btn" class="w-full sm:w-auto bg-red-500 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-red-600 transition-transform transform hover:scale-105">Cancel</button>
+            </div>
+
+            <!-- Image/Video Display Area -->
+            <div id="display-container" class="relative w-full max-w-md mx-auto aspect-square bg-gray-200 rounded-lg mb-6 overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-300">
+                <img id="uploaded-image" class="hidden w-full h-full object-cover" alt="Uploaded Flower">
+                <video id="camera-stream" playsinline muted class="hidden w-full h-full object-cover"></video>
+                <p id="placeholder-text" class="text-gray-500 px-4">Your image will appear here</p>
+            </div>
+
+            <!-- New Identify Button -->
+            <div id="identify-btn-container" class="mt-6 hidden">
+                <button id="identify-btn" class="w-full max-w-md mx-auto bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                    Identify This Flower
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-container" class="text-left hidden mt-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Identification Result:</h2>
+                <div id="predictions" class="space-y-3">
+                    <!-- Prediction results will be injected here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Gemini API Integration Section -->
+            <div id="gemini-container" class="text-left hidden mt-8 border-t-2 border-gray-200 pt-6">
+                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Learn More with Gemini</h2>
+                 <div id="gemini-actions" class="flex flex-col sm:flex-row justify-center gap-4 mb-4">
+                     <button id="gemini-desc-btn" class="w-full sm:w-auto bg-purple-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-purple-700 transition-transform transform hover:scale-105">Tell Me More ✨</button>
+                     <button id="gemini-care-btn" class="w-full sm:w-auto bg-sky-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-sky-700 transition-transform transform hover:scale-105">Gardening Tips ✨</button>
+                 </div>
+                 <div id="gemini-output-container" class="mt-4 p-4 bg-gray-50 rounded-lg min-h-[100px]">
+                     <div id="gemini-output" class="text-gray-700"></div>
+                 </div>
+            </div>
+        </main>
+    </div>
+    
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <script>
+        // DOM Elements
+        const statusEl = document.getElementById('status');
+        const actionButtonsEl = document.getElementById('action-buttons');
+        const uploadBtn = document.getElementById('upload-btn');
+        const imageUploadInput = document.getElementById('image-upload-input');
+        const cameraBtn = document.getElementById('camera-btn');
+        
+        const uploadedImageEl = document.getElementById('uploaded-image');
+        const cameraStreamEl = document.getElementById('camera-stream');
+        const placeholderTextEl = document.getElementById('placeholder-text');
+        
+        const cameraActionsEl = document.getElementById('camera-actions');
+        const snapPhotoBtn = document.getElementById('snap-photo-btn');
+        const cancelCameraBtn = document.getElementById('cancel-camera-btn');
+        
+        const resultsContainer = document.getElementById('results-container');
+        const predictionsEl = document.getElementById('predictions');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const identifyBtnContainer = document.getElementById('identify-btn-container');
+        const identifyBtn = document.getElementById('identify-btn');
+
+        const userNameDisplay = document.getElementById('user-name-display');
+        const editNameBtn = document.getElementById('edit-name-btn');
+        const nameInputContainer = document.getElementById('name-input-container');
+        const nameInput = document.getElementById('name-input');
+        const saveNameBtn = document.getElementById('save-name-btn');
+
+        const geminiContainer = document.getElementById('gemini-container');
+        const geminiDescBtn = document.getElementById('gemini-desc-btn');
+        const geminiCareBtn = document.getElementById('gemini-care-btn');
+        const geminiOutput = document.getElementById('gemini-output');
+        
+        let stream;
+        let lastIdentifiedFlower = '';
+
+        // --- 1. Initialization ---
+        function initialize() {
+            loadUserName();
+        }
+
+        // --- 2. Name Personalization ---
+        function loadUserName() {
+            const savedName = localStorage.getItem('flowerIdentifierUserName');
+            if (savedName) {
+                userNameDisplay.textContent = `${savedName}'s`;
+            }
+        }
+        editNameBtn.addEventListener('click', () => {
+            nameInputContainer.classList.toggle('hidden');
+            nameInputContainer.classList.toggle('flex');
+            nameInput.value = localStorage.getItem('flowerIdentifierUserName') || '';
+            nameInput.focus();
+        });
+        saveNameBtn.addEventListener('click', () => {
+            const userName = nameInput.value.trim();
+            if (userName) {
+                localStorage.setItem('flowerIdentifierUserName', userName);
+                userNameDisplay.textContent = `${userName}'s`;
+            } else {
+                localStorage.removeItem('flowerIdentifierUserName');
+                userNameDisplay.textContent = 'Flower';
+            }
+            nameInputContainer.classList.add('hidden');
+            nameInputContainer.classList.remove('flex');
+        });
+
+        // --- 3. Image Handling ---
+        uploadBtn.addEventListener('click', () => imageUploadInput.click());
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadedImageEl.src = e.target.result;
+                    showDisplayElement(uploadedImageEl);
+                    resultsContainer.classList.add('hidden');
+                    geminiContainer.classList.add('hidden');
+                    identifyBtnContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // --- 4. Camera Handling ---
+        cameraBtn.addEventListener('click', startCamera);
+        cancelCameraBtn.addEventListener('click', stopCamera);
+        snapPhotoBtn.addEventListener('click', snapPhoto);
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' }
+                });
+                cameraStreamEl.srcObject = stream;
+                await cameraStreamEl.play();
+                showDisplayElement(cameraStreamEl);
+                actionButtonsEl.classList.add('hidden');
+                cameraActionsEl.classList.remove('hidden');
+                cameraActionsEl.classList.add('flex');
+                resultsContainer.classList.add('hidden');
+                identifyBtnContainer.classList.add('hidden');
+                geminiContainer.classList.add('hidden');
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                alert('Could not access the camera. Please grant permission.');
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            showDisplayElement(null);
+            actionButtonsEl.classList.remove('hidden');
+            cameraActionsEl.classList.add('hidden');
+            identifyBtnContainer.classList.add('hidden');
+        }
+
+        function snapPhoto() {
+            canvas.width = cameraStreamEl.videoWidth;
+            canvas.height = cameraStreamEl.videoHeight;
+            ctx.drawImage(cameraStreamEl, 0, 0, canvas.width, canvas.height);
+            uploadedImageEl.src = canvas.toDataURL('image/jpeg');
+            showDisplayElement(uploadedImageEl);
+            stopCamera();
+            resultsContainer.classList.add('hidden');
+            identifyBtnContainer.classList.remove('hidden');
+        }
+
+        // --- 5. Core AI Logic (Gemini Image Recognition) ---
+        identifyBtn.addEventListener('click', () => classifyImageWithGemini(uploadedImageEl));
+
+        async function classifyImageWithGemini(imageElement) {
+            identifyBtnContainer.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+            geminiContainer.classList.add('hidden');
+            predictionsEl.innerHTML = '<div class="loader mx-auto"></div><p class="text-center text-gray-500">Asking Gemini to identify the flower...</p>';
+
+            // Convert image to base64
+            const canvas = document.createElement('canvas');
+            canvas.width = imageElement.naturalWidth;
+            canvas.height = imageElement.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imageElement, 0, 0);
+            const base64ImageData = canvas.toDataURL('image/jpeg').split(',')[1];
+
+            // =================================================================================
+            // IMPORTANT: To run this in VS Code or locally, you must provide your own API key.
+            // 1. Get a free key from Google AI Studio: https://aistudio.google.com/app/apikey
+            // 2. Paste the key into the quotes below.
+            // =================================================================================
+            const apiKey = "AIzaSyCWEYZf1gHMJ01GejWCDw7qU5wDyn-Iw-M"; 
+            
+            if (apiKey === "...") {
+                 predictionsEl.innerHTML = '<p class="text-center text-red-500 font-semibold">ERROR: API Key not set. Please follow the instructions in the code to add your key.</p>';
+                 return;
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const userQuery = "Identify the flower in this image, focusing on species common in South India. Provide only the most common name of the flower, and nothing else. For example: 'Hibiscus' or 'Jasmine'.";
+            
+            try {
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: userQuery },
+                            { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
+                        ]
+                    }]
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                
+                const result = await response.json();
+                const flowerName = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!flowerName) throw new Error("Could not extract flower name from response.");
+
+                setTimeout(() => {
+                    displayResult(flowerName.trim());
+                }, 1500); // Shorter delay as Gemini is the main event
+
+            } catch (err) {
+                console.error("Gemini classification error:", err);
+                predictionsEl.innerHTML = '<p class="text-center text-red-500">Sorry, Gemini could not identify the flower. Please try a different image.</p>';
+            }
+        }
+
+        // --- 6. Display Results ---
+        function displayResult(flowerName) {
+            predictionsEl.innerHTML = '';
+            lastIdentifiedFlower = flowerName; // Save for Gemini text features
+
+            const predictionDiv = document.createElement('div');
+            predictionDiv.className = 'bg-green-50 p-4 rounded-lg shadow-sm';
+            predictionDiv.innerHTML = `
+                <p class="text-xl text-center font-bold capitalize text-green-800">${flowerName}</p>
+            `;
+            predictionsEl.appendChild(predictionDiv);
+            
+            geminiContainer.classList.remove('hidden');
+            geminiOutput.innerHTML = '<p class="text-center text-gray-500">Click a button above to learn more about this flower!</p>';
+        }
+        
+        // --- 7. Gemini API Text Generation ---
+        geminiDescBtn.addEventListener('click', () => getGeminiInfo('description'));
+        geminiCareBtn.addEventListener('click', () => getGeminiInfo('gardening'));
+
+        async function getGeminiInfo(type) {
+            if (!lastIdentifiedFlower) return;
+            
+            geminiOutput.innerHTML = '<div class="loader mx-auto"></div><p class="text-center text-gray-500">Gemini is thinking...</p>';
+
+            const apiKey = "YOUR_API_KEY_HERE"; // Same key as above
+
+            if (apiKey === "YOUR_API_KEY_HERE") {
+                 geminiOutput.innerHTML = '<p class="text-center text-red-500 font-semibold">ERROR: API Key not set. Please add your key to run this feature.</p>';
+                 return;
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const systemPrompt = "You are a friendly and knowledgeable botany assistant specializing in flowers found in India. Your answers should be clear, concise, and easy for a beginner to understand.";
+            let userQuery = '';
+            if (type === 'description') {
+                userQuery = `Tell me about the ${lastIdentifiedFlower}. Focus on its appearance, common varieties found in South India, and any cultural or medicinal significance in the region. Keep the response to about 2-3 paragraphs.`;
+            } else if (type === 'gardening') {
+                userQuery = `Provide simple gardening tips for growing a ${lastIdentifiedFlower} in a typical South Indian climate (like in Bangalore). Include advice on sunlight requirements, watering frequency, and soil type. Format the tips as a short bulleted or numbered list.`;
+            }
+
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!text) throw new Error("Invalid response structure from Gemini API.");
+                
+                let formattedText = text.replace(/\n/g, '<br>');
+                formattedText = formattedText.replace(/\* /g, '<ul><li class="ml-4">');
+                formattedText = formattedText.replace(/(\<br\>)+/g, '</li></ul><ul><li class="ml-4">');
+                formattedText = formattedText.replace(/(\<\/ul\>)$/, ''); 
+                
+                geminiOutput.innerHTML = formattedText;
+
+            } catch (err) {
+                console.error("Gemini API error:", err);
+                geminiOutput.innerHTML = '<p class="text-center text-red-500">Sorry, something went wrong. Please try again.</p>';
+            }
+        }
+        
+        // --- 8. Helper Functions ---
+        function showDisplayElement(element) {
+            [uploadedImageEl, cameraStreamEl, placeholderTextEl].forEach(el => el.classList.add('hidden'));
+            if(element){
+                element.classList.remove('hidden');
+            } else {
+                 placeholderTextEl.classList.remove('hidden');
+                 uploadedImageEl.src = "#";
+            }
+        }
+
+        // --- Run the application ---
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
+
